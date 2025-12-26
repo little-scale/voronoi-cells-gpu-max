@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Voronoi Cell Simulator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Space+Grotesk:wght@300;500;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --accent-cyan: #00fff2;
+            --accent-magenta: #ff00aa;
+            --accent-yellow: #ffee00;
+            --text-primary: #e8e8f0;
+            --text-dim: #6a6a80;
+            --border: #2a2a3a;
+        }
+        
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            height: 100vh;
+            gap: 1px;
+            background: var(--border);
+        }
+        
+        .canvas-wrapper {
+            position: relative;
+            background: var(--bg-primary);
+            overflow: hidden;
+        }
+        
+        #voronoiCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: grab;
+        }
+        
+        #voronoiCanvas:active {
+            cursor: grabbing;
+        }
+        
+        .overlay-info .fps {
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+        
+        .overlay-info .mode {
+            color: var(--accent-magenta);
+        }
+        
+        .sidebar {
+            background: var(--bg-secondary);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+        
+        .sidebar-header h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .sidebar-header .subtitle {
+            font-size: 10px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        
+        .controls {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        
+        .control-section {
+            margin-bottom: 24px;
+        }
+        
+        .control-section h3 {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .control-group {
+            margin-bottom: 14px;
+        }
+        
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
+        
+        .control-group label .value {
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent-cyan);
+            transition: transform 0.15s ease;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+        
+        input[type="text"]:focus, input[type="number"]:focus {
+            border-color: var(--accent-cyan);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn:hover {
+            background: var(--border);
+            border-color: var(--accent-cyan);
+        }
+        
+        .btn.active {
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+            border-color: var(--accent-cyan);
+        }
+        
+        .btn-row {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-row .btn {
+            flex: 1;
+        }
+        
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.connected {
+            background: #44ff88;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .osc-log {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px;
+            height: 100px;
+            overflow-y: auto;
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+        
+        .osc-log .message {
+            margin-bottom: 4px;
+            padding: 2px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .osc-log .message.in {
+            color: var(--accent-cyan);
+        }
+        
+        .osc-log .message.out {
+            color: var(--accent-magenta);
+        }
+        
+        .color-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        input[type="color"] {
+            width: 40px;
+            height: 32px;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+        
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 2px;
+        }
+        
+        input[type="color"]::-webkit-color-swatch {
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent-cyan);
+        }
+        
+        .max-api-section {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 8px;
+        }
+        
+        .max-api-section code {
+            display: block;
+            font-size: 9px;
+            color: var(--accent-yellow);
+            background: var(--bg-primary);
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+            word-break: break-all;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .hint {
+            font-size: 10px;
+            color: var(--text-dim);
+            margin-top: 6px;
+            font-style: italic;
+        }
+        
+        .toggle-sidebar {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 40px;
+            height: 40px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: all 0.2s ease;
+        }
+        
+        .toggle-sidebar:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-cyan);
+        }
+        
+        .sidebar.hidden {
+            display: none;
+        }
+        
+        .container.fullscreen {
+            grid-template-columns: 1fr;
+        }
+        
+        .overlay-info {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            font-size: 11px;
+            color: var(--text-dim);
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .overlay-info.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container">
+        <div class="canvas-wrapper">
+            <canvas id="voronoiCanvas"></canvas>
+            <div class="overlay-info" id="overlayInfo">
+                <div>VORONOI <span class="fps" id="fpsDisplay">60</span> FPS</div>
+                <div id="cellCountDisplay">Cells: 16</div>
+                <div id="cameraInfo">Drag=attract • Shift+drag=repel</div>
+            </div>
+            <button class="toggle-sidebar" id="toggleSidebar">☰</button>
+        </div>
+        
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1>Voronoi Cells</h1>
+                <div class="subtitle">GPU Accelerated • OSC • Max API</div>
+            </div>
+            
+            <div class="controls">
+                <div class="control-section">
+                    <h3>Simulation</h3>
+                    
+                    <div class="control-group">
+                        <label>Cell Count <span class="value" id="cellCountValue">16</span></label>
+                        <input type="range" id="cellCountSlider" min="2" max="64" value="16">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Speed <span class="value" id="speedValue">0.50</span></label>
+                        <input type="range" id="speed" min="0" max="100" value="50">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Turbulence <span class="value" id="turbulenceValue">0.30</span></label>
+                        <input type="range" id="turbulence" min="0" max="100" value="30">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Attraction <span class="value" id="attractionValue">0.00</span></label>
+                        <input type="range" id="attraction" min="-100" max="100" value="0">
+                    </div>
+                    
+                    <div class="control-group btn-row">
+                        <button class="btn" id="pauseBtn">Pause</button>
+                        <button class="btn" id="resetBtn">Reset</button>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>Appearance</h3>
+                    
+                    <div class="control-group">
+                        <label>Border Width <span class="value" id="borderValue">0.8</span></label>
+                        <input type="range" id="borderWidth" min="0" max="100" value="8">
+                    </div>
+                    
+                    <div class="control-group color-row">
+                        <label style="flex:1">Color A</label>
+                        <input type="color" id="colorA" value="#00fff2">
+                    </div>
+                    
+                    <div class="control-group color-row">
+                        <label style="flex:1">Color B</label>
+                        <input type="color" id="colorB" value="#ff00aa">
+                    </div>
+                    
+                    <div class="control-group color-row">
+                        <label style="flex:1">Background</label>
+                        <input type="color" id="bgColor" value="#0a0a0f">
+                    </div>
+                    
+                    <div class="control-group checkbox-group">
+                        <input type="checkbox" id="showCentroids">
+                        <label>Show Centroids</label>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>OSC Connection</h3>
+                    
+                    <div class="control-group">
+                        <label>WebSocket URL</label>
+                        <input type="text" id="oscUrl" value="ws://localhost:8080" placeholder="ws://localhost:8080">
+                    </div>
+                    
+                    <div class="control-group btn-row">
+                        <button class="btn" id="oscConnectBtn">Connect</button>
+                        <button class="btn" id="oscDisconnectBtn">Disconnect</button>
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="status-indicator">
+                            <div class="status-dot" id="oscStatus"></div>
+                            <span id="oscStatusText">Disconnected</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Message Log</label>
+                        <div class="osc-log" id="oscLog"></div>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>Max API</h3>
+                    <div class="max-api-section">
+                        <div style="font-size:10px; color:var(--text-dim);">Exposed Functions:</div>
+                        <code>
+                            window.voronoi.setCellCount(n)<br>
+                            window.voronoi.setSpeed(0-1)<br>
+                            window.voronoi.setRenderMode(mode)<br>
+                            window.voronoi.setSlicePos(0-1)<br>
+                            window.voronoi.setCamera(rotX, rotY, zoom)<br>
+                            window.voronoi.getCellData()<br>
+                            window.voronoi.getCellPosition3D(i)<br>
+                            window.voronoi.setCellPosition3D(i,x,y,z)
+                        </code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // 3D Voronoi GPU Simulator
+        // Raymarched rendering with OSC & Max API
+        // ============================================
+
+        const canvas = document.getElementById('voronoiCanvas');
+        const gl = canvas.getContext('webgl2');
+        
+        if (!gl) {
+            alert('WebGL2 not supported');
+            throw new Error('WebGL2 not supported');
+        }
+
+        // State
+        let state = {
+            numCells: 16,
+            speed: 0.5,
+            turbulence: 0.3,
+            attraction: 0.0,
+            borderWidth: 0.8,
+            colorA: [0, 1, 0.95],
+            colorB: [1, 0, 0.67],
+            bgColor: [0.04, 0.04, 0.06],
+            showCentroids: false,
+            paused: false,
+            time: 0
+        };
+
+        // Cell data (2D positions and velocities)
+        let cells = [];
+        const MAX_CELLS = 64;
+
+        // WebSocket for OSC
+        let oscSocket = null;
+        let oscConnected = false;
+        const oscPrefix = '/voronoi';
+
+        // ============================================
+        // Shader Sources
+        // ============================================
+
+        const vertexShaderSource = `#version 300 es
+            in vec2 a_position;
+            out vec2 v_uv;
+            
+            void main() {
+                v_uv = a_position * 0.5 + 0.5;
+                gl_Position = vec4(a_position, 0.0, 1.0);
+            }
+        `;
+
+        const fragmentShaderSource = `#version 300 es
+            precision highp float;
+            
+            in vec2 v_uv;
+            out vec4 fragColor;
+            
+            uniform vec2 u_resolution;
+            uniform int u_numCells;
+            uniform vec2 u_cells[64];
+            uniform float u_borderWidth;
+            uniform vec3 u_colorA;
+            uniform vec3 u_colorB;
+            uniform vec3 u_bgColor;
+            uniform bool u_showCentroids;
+            
+            vec3 getCellColor(int cellIndex) {
+                float t = float(cellIndex) / float(max(u_numCells - 1, 1));
+                return mix(u_colorA, u_colorB, t);
+            }
+            
+            void main() {
+                vec2 uv = v_uv * 2.0 - 1.0;
+                uv.x *= u_resolution.x / u_resolution.y;
+                vec2 p = uv * 0.5 + 0.5;
+                
+                float minDist = 1e10;
+                float secondMinDist = 1e10;
+                int closestCell = 0;
+                
+                for (int i = 0; i < 64; i++) {
+                    if (i >= u_numCells) break;
+                    
+                    vec2 cellPos = u_cells[i];
+                    float d = distance(p, cellPos);
+                    
+                    if (d < minDist) {
+                        secondMinDist = minDist;
+                        minDist = d;
+                        closestCell = i;
+                    } else if (d < secondMinDist) {
+                        secondMinDist = d;
+                    }
+                }
+                
+                float edge = secondMinDist - minDist;
+                float borderThreshold = u_borderWidth * 0.005;
+                float edgeFactor = smoothstep(0.0, borderThreshold, edge);
+                
+                vec3 cellColor = getCellColor(closestCell);
+                vec3 color = mix(vec3(1.0), cellColor, edgeFactor);
+                
+                if (u_showCentroids) {
+                    vec2 cellPos = u_cells[closestCell];
+                    float centDist = distance(p, cellPos);
+                    float centFactor = 1.0 - smoothstep(0.008, 0.015, centDist);
+                    color = mix(color, vec3(1.0), centFactor);
+                }
+                
+                color = pow(color, vec3(0.9));
+                fragColor = vec4(color, 1.0);
+            }
+        `;
+
+        // ============================================
+        // WebGL Setup
+        // ============================================
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        function createProgram(gl, vertexShader, fragmentShader) {
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('Program link error:', gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                return null;
+            }
+            return program;
+        }
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+        const program = createProgram(gl, vertexShader, fragmentShader);
+
+        // Geometry - full screen quad
+        const positions = new Float32Array([
+            -1, -1,
+             1, -1,
+            -1,  1,
+             1,  1
+        ]);
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+
+        const positionLoc = gl.getAttribLocation(program, 'a_position');
+        gl.enableVertexAttribArray(positionLoc);
+        gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+        // Uniforms
+        const uniforms = {
+            resolution: gl.getUniformLocation(program, 'u_resolution'),
+            numCells: gl.getUniformLocation(program, 'u_numCells'),
+            cells: gl.getUniformLocation(program, 'u_cells'),
+            borderWidth: gl.getUniformLocation(program, 'u_borderWidth'),
+            colorA: gl.getUniformLocation(program, 'u_colorA'),
+            colorB: gl.getUniformLocation(program, 'u_colorB'),
+            bgColor: gl.getUniformLocation(program, 'u_bgColor'),
+            showCentroids: gl.getUniformLocation(program, 'u_showCentroids')
+        };
+
+        // ============================================
+        // Cell Initialization & Simulation (2D)
+        // ============================================
+
+        function initCells() {
+            cells = [];
+            const minSeparation = 0.1;
+            
+            for (let i = 0; i < state.numCells; i++) {
+                let x, y, valid;
+                let attempts = 0;
+                
+                do {
+                    x = Math.random();
+                    y = Math.random();
+                    valid = true;
+                    
+                    for (const other of cells) {
+                        const dx = x - other.x;
+                        const dy = y - other.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < minSeparation) {
+                            valid = false;
+                            break;
+                        }
+                    }
+                    attempts++;
+                } while (!valid && attempts < 100);
+                
+                cells.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 0.005,
+                    vy: (Math.random() - 0.5) * 0.005
+                });
+            }
+        }
+
+        function updateCells(dt) {
+            if (state.paused) return;
+            
+            const center = 0.5;
+            const minSeparation = 0.06;
+            
+            for (let i = 0; i < cells.length; i++) {
+                const cell = cells[i];
+                
+                // Separation forces
+                for (let j = 0; j < cells.length; j++) {
+                    if (i === j) continue;
+                    
+                    const other = cells[j];
+                    const dx = cell.x - other.x;
+                    const dy = cell.y - other.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    
+                    if (dist < minSeparation && dist > 0.001) {
+                        const force = (minSeparation - dist) / minSeparation * 0.008;
+                        cell.vx += (dx / dist) * force;
+                        cell.vy += (dy / dist) * force;
+                    }
+                }
+                
+                // Turbulence
+                const noiseX = Math.sin(cell.x * 8 + state.time) * Math.cos(cell.y * 6 + state.time * 0.7);
+                const noiseY = Math.cos(cell.y * 8 + state.time * 0.8) * Math.sin(cell.x * 6 + state.time);
+                
+                cell.vx += noiseX * state.turbulence * 0.0008;
+                cell.vy += noiseY * state.turbulence * 0.0008;
+                
+                // Attraction to center
+                const dxc = center - cell.x;
+                const dyc = center - cell.y;
+                const distc = Math.sqrt(dxc*dxc + dyc*dyc);
+                
+                if (distc > 0.01) {
+                    cell.vx += (dxc / distc) * state.attraction * 0.00008;
+                    cell.vy += (dyc / distc) * state.attraction * 0.00008;
+                }
+                
+                // Apply velocity
+                cell.x += cell.vx * state.speed;
+                cell.y += cell.vy * state.speed;
+                
+                // Damping
+                cell.vx *= 0.98;
+                cell.vy *= 0.98;
+                
+                // Boundary wrapping
+                if (cell.x < 0) cell.x += 1;
+                if (cell.x > 1) cell.x -= 1;
+                if (cell.y < 0) cell.y += 1;
+                if (cell.y > 1) cell.y -= 1;
+            }
+        }
+
+        function getCellArrays() {
+            const positions = new Float32Array(MAX_CELLS * 2);
+            
+            for (let i = 0; i < cells.length; i++) {
+                positions[i * 2] = cells[i].x;
+                positions[i * 2 + 1] = cells[i].y;
+            }
+            
+            return positions;
+        }
+
+        // ============================================
+        // Rendering
+        // ============================================
+
+        function resize() {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+
+        let lastTime = 0;
+        let frameCount = 0;
+        let fpsTime = 0;
+
+        function render(time) {
+            const dt = (time - lastTime) / 1000;
+            lastTime = time;
+            
+            // FPS
+            frameCount++;
+            if (time - fpsTime >= 1000) {
+                document.getElementById('fpsDisplay').textContent = frameCount;
+                frameCount = 0;
+                fpsTime = time;
+            }
+            
+            state.time += dt;
+            
+            applyMouseForce();
+            updateCells(dt);
+            sendOSCData();
+            
+            const positions = getCellArrays();
+            
+            gl.useProgram(program);
+            gl.bindVertexArray(vao);
+            
+            gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
+            gl.uniform1i(uniforms.numCells, cells.length);
+            gl.uniform2fv(uniforms.cells, positions);
+            gl.uniform1f(uniforms.borderWidth, state.borderWidth);
+            gl.uniform3fv(uniforms.colorA, state.colorA);
+            gl.uniform3fv(uniforms.colorB, state.colorB);
+            gl.uniform3fv(uniforms.bgColor, state.bgColor);
+            gl.uniform1i(uniforms.showCentroids, state.showCentroids ? 1 : 0);
+            
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            
+            requestAnimationFrame(render);
+        }
+
+        // ============================================
+        // Mouse Controls
+        // ============================================
+
+        let mouseX = 0.5;
+        let mouseY = 0.5;
+        let mouseActive = false;
+        let mouseMode = 'attract'; // 'attract' or 'repel'
+        
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = 1 - (e.clientY - rect.top) / rect.height;
+            return { x, y };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            mouseActive = true;
+            const pos = getMousePos(e);
+            mouseX = pos.x;
+            mouseY = pos.y;
+            mouseMode = e.shiftKey ? 'repel' : 'attract';
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const pos = getMousePos(e);
+            mouseX = pos.x;
+            mouseY = pos.y;
+        });
+
+        canvas.addEventListener('mouseup', () => { mouseActive = false; });
+        canvas.addEventListener('mouseleave', () => { mouseActive = false; });
+        
+        // Apply mouse forces to cells
+        function applyMouseForce() {
+            if (!mouseActive) return;
+            
+            const strength = mouseMode === 'attract' ? 0.0008 : -0.0012;
+            
+            for (const cell of cells) {
+                const dx = mouseX - cell.x;
+                const dy = mouseY - cell.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist > 0.01 && dist < 0.5) {
+                    const force = strength / (dist + 0.1);
+                    cell.vx += dx * force;
+                    cell.vy += dy * force;
+                }
+            }
+        }
+
+        // ============================================
+        // OSC WebSocket
+        // ============================================
+
+        function connectOSC() {
+            const url = document.getElementById('oscUrl').value;
+            
+            try {
+                oscSocket = new WebSocket(url);
+                
+                oscSocket.onopen = () => {
+                    oscConnected = true;
+                    document.getElementById('oscStatus').classList.add('connected');
+                    document.getElementById('oscStatusText').textContent = 'Connected';
+                    logOSC('out', 'Connected to ' + url);
+                };
+                
+                oscSocket.onclose = () => {
+                    oscConnected = false;
+                    document.getElementById('oscStatus').classList.remove('connected');
+                    document.getElementById('oscStatusText').textContent = 'Disconnected';
+                };
+                
+                oscSocket.onerror = (err) => {
+                    logOSC('out', 'Error: Connection failed');
+                };
+                
+                oscSocket.onmessage = (event) => {
+                    handleOSCMessage(event.data);
+                };
+            } catch (err) {
+                logOSC('out', 'Connection failed');
+            }
+        }
+
+        function disconnectOSC() {
+            if (oscSocket) {
+                oscSocket.close();
+                oscSocket = null;
+            }
+        }
+
+        function sendOSC(address, ...args) {
+            if (!oscConnected || !oscSocket) return;
+            
+            const message = JSON.stringify({
+                address: oscPrefix + address,
+                args: args
+            });
+            
+            oscSocket.send(message);
+        }
+
+        // Collision tracking
+        const collisionThreshold = 0.08;
+        let previousCollisions = new Set();
+
+        // Approximate Voronoi cell area using Monte Carlo sampling
+        function estimateCellAreas(sampleCount = 500) {
+            const areas = new Array(cells.length).fill(0);
+            
+            for (let s = 0; s < sampleCount; s++) {
+                const px = Math.random();
+                const py = Math.random();
+                
+                let minDist = Infinity;
+                let closestCell = 0;
+                
+                for (let i = 0; i < cells.length; i++) {
+                    const dx = px - cells[i].x;
+                    const dy = py - cells[i].y;
+                    const dist = dx * dx + dy * dy;
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestCell = i;
+                    }
+                }
+                
+                areas[closestCell]++;
+            }
+            
+            // Normalize to 0-1 range (proportion of total area)
+            for (let i = 0; i < areas.length; i++) {
+                areas[i] /= sampleCount;
+            }
+            
+            return areas;
+        }
+
+        // Calculate per-cell analysis data
+        function analyzeCells() {
+            const analysis = {
+                nearestDist: [],      // Distance to nearest neighbor per cell
+                nearestNeighbor: [],  // Index of nearest neighbor
+                localDensity: [],     // Inverse of nearest dist (higher = more crowded)
+                speed: [],            // Speed per cell
+                areas: []             // Approximate Voronoi cell areas
+            };
+            
+            // Calculate nearest neighbor distances
+            for (let i = 0; i < cells.length; i++) {
+                let minDist = Infinity;
+                let nearestIdx = -1;
+                
+                for (let j = 0; j < cells.length; j++) {
+                    if (i === j) continue;
+                    
+                    const dx = cells[i].x - cells[j].x;
+                    const dy = cells[i].y - cells[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearestIdx = j;
+                    }
+                }
+                
+                analysis.nearestDist[i] = minDist;
+                analysis.nearestNeighbor[i] = nearestIdx;
+                analysis.localDensity[i] = 1.0 / (minDist + 0.01); // Avoid division by zero
+                analysis.speed[i] = Math.sqrt(cells[i].vx * cells[i].vx + cells[i].vy * cells[i].vy);
+            }
+            
+            // Estimate cell areas (less frequently - expensive)
+            if (Math.floor(state.time * 10) % 2 === 0) {
+                analysis.areas = estimateCellAreas(300);
+            }
+            
+            return analysis;
+        }
+
+        // Detect collision events (cells crossing threshold)
+        function detectCollisions(analysis) {
+            const currentCollisions = new Set();
+            const newCollisions = [];
+            
+            for (let i = 0; i < cells.length; i++) {
+                for (let j = i + 1; j < cells.length; j++) {
+                    const dx = cells[i].x - cells[j].x;
+                    const dy = cells[i].y - cells[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < collisionThreshold) {
+                        const key = `${i}-${j}`;
+                        currentCollisions.add(key);
+                        
+                        // New collision event
+                        if (!previousCollisions.has(key)) {
+                            newCollisions.push({ a: i, b: j, dist: dist });
+                        }
+                    }
+                }
+            }
+            
+            previousCollisions = currentCollisions;
+            return newCollisions;
+        }
+
+        function sendOSCData() {
+            if (!oscConnected) return;
+            
+            const analysis = analyzeCells();
+            const collisions = detectCollisions(analysis);
+            
+            // Cell count
+            sendOSC('/cells/count', cells.length);
+            
+            // Per-cell data (throttled)
+            if (Math.floor(state.time * 60) % 3 === 0) {
+                for (let i = 0; i < cells.length; i++) {
+                    sendOSC('/cell/' + i + '/pos', cells[i].x, cells[i].y);
+                    sendOSC('/cell/' + i + '/vel', cells[i].vx, cells[i].vy);
+                    sendOSC('/cell/' + i + '/speed', analysis.speed[i]);
+                    sendOSC('/cell/' + i + '/nearestDist', analysis.nearestDist[i]);
+                    sendOSC('/cell/' + i + '/nearestNeighbor', analysis.nearestNeighbor[i]);
+                    sendOSC('/cell/' + i + '/density', analysis.localDensity[i]);
+                    
+                    if (analysis.areas.length > 0) {
+                        sendOSC('/cell/' + i + '/area', analysis.areas[i]);
+                    }
+                }
+            }
+            
+            // Collision events (immediate)
+            for (const collision of collisions) {
+                sendOSC('/event/collision', collision.a, collision.b, collision.dist);
+            }
+            
+            // Aggregate data
+            let avgX = 0, avgY = 0, totalVel = 0;
+            let minNearestDist = Infinity, maxNearestDist = 0;
+            let totalDensity = 0;
+            
+            for (let i = 0; i < cells.length; i++) {
+                avgX += cells[i].x;
+                avgY += cells[i].y;
+                totalVel += analysis.speed[i];
+                totalDensity += analysis.localDensity[i];
+                minNearestDist = Math.min(minNearestDist, analysis.nearestDist[i]);
+                maxNearestDist = Math.max(maxNearestDist, analysis.nearestDist[i]);
+            }
+            avgX /= cells.length;
+            avgY /= cells.length;
+            totalVel /= cells.length;
+            totalDensity /= cells.length;
+            
+            // Calculate spread (standard deviation of positions)
+            let spreadX = 0, spreadY = 0;
+            for (const cell of cells) {
+                spreadX += (cell.x - avgX) * (cell.x - avgX);
+                spreadY += (cell.y - avgY) * (cell.y - avgY);
+            }
+            const spread = Math.sqrt((spreadX + spreadY) / cells.length);
+            
+            sendOSC('/aggregate/avgPos', avgX, avgY);
+            sendOSC('/aggregate/avgVel', totalVel);
+            sendOSC('/aggregate/spread', spread);
+            sendOSC('/aggregate/avgDensity', totalDensity);
+            sendOSC('/aggregate/minNearestDist', minNearestDist);
+            sendOSC('/aggregate/maxNearestDist', maxNearestDist);
+            sendOSC('/aggregate/collisionCount', collisions.length);
+        }
+
+        function handleOSCMessage(data) {
+            try {
+                const msg = JSON.parse(data);
+                logOSC('in', `${msg.address}: ${msg.args.join(', ')}`);
+                
+                const addr = msg.address.replace(oscPrefix, '');
+                const args = msg.args;
+                
+                switch (addr) {
+                    case '/cells/count':
+                        window.voronoi.setCellCount(args[0]);
+                        break;
+                    case '/speed':
+                        window.voronoi.setSpeed(args[0]);
+                        break;
+                    case '/turbulence':
+                        window.voronoi.setTurbulence(args[0]);
+                        break;
+                    case '/reset':
+                        window.voronoi.reset();
+                        break;
+                }
+            } catch (err) {
+                logOSC('in', data);
+            }
+        }
+
+        function logOSC(direction, message) {
+            const log = document.getElementById('oscLog');
+            const div = document.createElement('div');
+            div.className = 'message ' + direction;
+            div.textContent = (direction === 'in' ? '← ' : '→ ') + message;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+            
+            while (log.children.length > 50) {
+                log.removeChild(log.firstChild);
+            }
+        }
+
+        // ============================================
+        // Max API
+        // ============================================
+
+        // Cell lifecycle event callbacks
+        const cellEventCallbacks = {
+            onCellCreated: [],
+            onCellDestroyed: []
+        };
+
+        window.voronoi = {
+            // Register callbacks for cell events
+            onCellCreated: function(callback) {
+                if (typeof callback === 'function') {
+                    cellEventCallbacks.onCellCreated.push(callback);
+                }
+            },
+            
+            onCellDestroyed: function(callback) {
+                if (typeof callback === 'function') {
+                    cellEventCallbacks.onCellDestroyed.push(callback);
+                }
+            },
+            
+            setCellCount: function(n) {
+                n = Math.max(2, Math.min(MAX_CELLS, Math.floor(n)));
+                const previousCount = cells.length;
+                state.numCells = n;
+                
+                // Adding cells
+                while (cells.length < n) {
+                    const newIndex = cells.length;
+                    const newCell = {
+                        x: Math.random(), y: Math.random(),
+                        vx: (Math.random() - 0.5) * 0.005,
+                        vy: (Math.random() - 0.5) * 0.005
+                    };
+                    cells.push(newCell);
+                    
+                    // Fire created event
+                    for (const cb of cellEventCallbacks.onCellCreated) {
+                        cb(newIndex, newCell.x, newCell.y);
+                    }
+                }
+                
+                // Removing cells
+                while (cells.length > n) {
+                    const removedIndex = cells.length - 1;
+                    const removedCell = cells[removedIndex];
+                    
+                    // Fire destroyed event before removal
+                    for (const cb of cellEventCallbacks.onCellDestroyed) {
+                        cb(removedIndex, removedCell.x, removedCell.y);
+                    }
+                    
+                    cells.pop();
+                }
+                
+                updateUI();
+                return cells.length;
+            },
+            
+            setSpeed: function(v) {
+                state.speed = Math.max(0, Math.min(1, v));
+                updateUI();
+                return state.speed;
+            },
+            
+            setTurbulence: function(v) {
+                state.turbulence = Math.max(0, Math.min(1, v));
+                updateUI();
+                return state.turbulence;
+            },
+            
+            setAttraction: function(v) {
+                state.attraction = Math.max(-1, Math.min(1, v));
+                updateUI();
+                return state.attraction;
+            },
+            
+            setBorderWidth: function(v) {
+                state.borderWidth = Math.max(0, Math.min(10, v));
+                updateUI();
+                return state.borderWidth;
+            },
+            
+            setColorA: function(rgb) {
+                if (Array.isArray(rgb) && rgb.length >= 3) {
+                    state.colorA = [rgb[0], rgb[1], rgb[2]];
+                }
+                return state.colorA;
+            },
+            
+            setColorB: function(rgb) {
+                if (Array.isArray(rgb) && rgb.length >= 3) {
+                    state.colorB = [rgb[0], rgb[1], rgb[2]];
+                }
+                return state.colorB;
+            },
+            
+            reset: function() {
+                initCells();
+                state.time = 0;
+                return true;
+            },
+            
+            pause: function() {
+                state.paused = true;
+                updateUI();
+                return true;
+            },
+            
+            resume: function() {
+                state.paused = false;
+                updateUI();
+                return true;
+            },
+            
+            toggle: function() {
+                state.paused = !state.paused;
+                updateUI();
+                return state.paused;
+            },
+            
+            getCellData: function() {
+                const analysis = analyzeCells();
+                const areas = estimateCellAreas(300);
+                
+                return cells.map((c, i) => ({
+                    index: i,
+                    x: c.x, y: c.y,
+                    vx: c.vx, vy: c.vy,
+                    speed: analysis.speed[i],
+                    nearestDist: analysis.nearestDist[i],
+                    nearestNeighbor: analysis.nearestNeighbor[i],
+                    density: analysis.localDensity[i],
+                    area: areas[i]
+                }));
+            },
+            
+            getAnalysis: function() {
+                const analysis = analyzeCells();
+                const areas = estimateCellAreas(300);
+                
+                let avgX = 0, avgY = 0, totalVel = 0, totalDensity = 0;
+                let minNearestDist = Infinity, maxNearestDist = 0;
+                
+                for (let i = 0; i < cells.length; i++) {
+                    avgX += cells[i].x;
+                    avgY += cells[i].y;
+                    totalVel += analysis.speed[i];
+                    totalDensity += analysis.localDensity[i];
+                    minNearestDist = Math.min(minNearestDist, analysis.nearestDist[i]);
+                    maxNearestDist = Math.max(maxNearestDist, analysis.nearestDist[i]);
+                }
+                avgX /= cells.length;
+                avgY /= cells.length;
+                
+                let spreadX = 0, spreadY = 0;
+                for (const cell of cells) {
+                    spreadX += (cell.x - avgX) * (cell.x - avgX);
+                    spreadY += (cell.y - avgY) * (cell.y - avgY);
+                }
+                const spread = Math.sqrt((spreadX + spreadY) / cells.length);
+                
+                return {
+                    cells: cells.map((c, i) => ({
+                        index: i,
+                        x: c.x, y: c.y,
+                        vx: c.vx, vy: c.vy,
+                        speed: analysis.speed[i],
+                        nearestDist: analysis.nearestDist[i],
+                        nearestNeighbor: analysis.nearestNeighbor[i],
+                        density: analysis.localDensity[i],
+                        area: areas[i]
+                    })),
+                    aggregate: {
+                        avgPos: { x: avgX, y: avgY },
+                        avgVel: totalVel / cells.length,
+                        avgDensity: totalDensity / cells.length,
+                        spread: spread,
+                        minNearestDist: minNearestDist,
+                        maxNearestDist: maxNearestDist
+                    }
+                };
+            },
+            
+            getCellPosition: function(index) {
+                if (index >= 0 && index < cells.length) {
+                    return { x: cells[index].x, y: cells[index].y };
+                }
+                return null;
+            },
+            
+            setCellPosition: function(index, x, y) {
+                if (index >= 0 && index < cells.length) {
+                    cells[index].x = x;
+                    cells[index].y = y;
+                    return true;
+                }
+                return false;
+            },
+            
+            setCollisionThreshold: function(threshold) {
+                collisionThreshold = Math.max(0.01, Math.min(0.5, threshold));
+                return collisionThreshold;
+            },
+            
+            getState: function() {
+                return { ...state };
+            }
+        };
+
+        // ============================================
+        // UI Controls
+        // ============================================
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? [
+                parseInt(result[1], 16) / 255,
+                parseInt(result[2], 16) / 255,
+                parseInt(result[3], 16) / 255
+            ] : null;
+        }
+
+        function updateUI() {
+            document.getElementById('cellCountSlider').value = cells.length;
+            document.getElementById('cellCountValue').textContent = cells.length;
+            document.getElementById('cellCountDisplay').textContent = 'Cells: ' + cells.length;
+            document.getElementById('speed').value = state.speed * 100;
+            document.getElementById('speedValue').textContent = state.speed.toFixed(2);
+            document.getElementById('turbulence').value = state.turbulence * 100;
+            document.getElementById('turbulenceValue').textContent = state.turbulence.toFixed(2);
+            document.getElementById('attraction').value = state.attraction * 100;
+            document.getElementById('attractionValue').textContent = state.attraction.toFixed(2);
+            document.getElementById('borderWidth').value = state.borderWidth * 10;
+            document.getElementById('borderValue').textContent = state.borderWidth.toFixed(1);
+            document.getElementById('showCentroids').checked = state.showCentroids;
+            
+            const pauseBtn = document.getElementById('pauseBtn');
+            pauseBtn.textContent = state.paused ? 'Resume' : 'Pause';
+            pauseBtn.classList.toggle('active', state.paused);
+        }
+
+        // Event listeners
+        document.getElementById('cellCountSlider').addEventListener('input', (e) => {
+            window.voronoi.setCellCount(parseInt(e.target.value));
+        });
+
+        document.getElementById('speed').addEventListener('input', (e) => {
+            window.voronoi.setSpeed(parseInt(e.target.value) / 100);
+        });
+
+        document.getElementById('turbulence').addEventListener('input', (e) => {
+            window.voronoi.setTurbulence(parseInt(e.target.value) / 100);
+        });
+
+        document.getElementById('attraction').addEventListener('input', (e) => {
+            window.voronoi.setAttraction(parseInt(e.target.value) / 100);
+        });
+
+        document.getElementById('borderWidth').addEventListener('input', (e) => {
+            window.voronoi.setBorderWidth(parseInt(e.target.value) / 10);
+        });
+
+        document.getElementById('colorA').addEventListener('input', (e) => {
+            state.colorA = hexToRgb(e.target.value);
+        });
+
+        document.getElementById('colorB').addEventListener('input', (e) => {
+            state.colorB = hexToRgb(e.target.value);
+        });
+
+        document.getElementById('bgColor').addEventListener('input', (e) => {
+            state.bgColor = hexToRgb(e.target.value);
+        });
+
+        document.getElementById('showCentroids').addEventListener('change', (e) => {
+            state.showCentroids = e.target.checked;
+        });
+
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            window.voronoi.toggle();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            window.voronoi.reset();
+        });
+
+        document.getElementById('oscConnectBtn').addEventListener('click', connectOSC);
+        document.getElementById('oscDisconnectBtn').addEventListener('click', disconnectOSC);
+
+        // ============================================
+        // Initialize
+        // ============================================
+
+        // Toggle handlers
+        const sidebar = document.getElementById('sidebar');
+        const container = document.getElementById('container');
+        const overlayInfo = document.getElementById('overlayInfo');
+        
+        let sidebarVisible = true;
+        let infoVisible = false;
+        
+        document.getElementById('toggleSidebar').addEventListener('click', () => {
+            sidebarVisible = !sidebarVisible;
+            sidebar.classList.toggle('hidden', !sidebarVisible);
+            container.classList.toggle('fullscreen', !sidebarVisible);
+            resize();
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            
+            switch(e.key.toLowerCase()) {
+                case 'h':
+                    sidebarVisible = !sidebarVisible;
+                    sidebar.classList.toggle('hidden', !sidebarVisible);
+                    container.classList.toggle('fullscreen', !sidebarVisible);
+                    resize();
+                    break;
+                case 'i':
+                    infoVisible = !infoVisible;
+                    overlayInfo.classList.toggle('visible', infoVisible);
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    window.voronoi.toggle();
+                    break;
+                case 'r':
+                    window.voronoi.reset();
+                    break;
+            }
+        });
+
+        window.addEventListener('resize', resize);
+        resize();
+        initCells();
+        updateUI();
+        requestAnimationFrame(render);
+
+        // Register OSC lifecycle event callbacks
+        window.voronoi.onCellCreated((index, x, y) => {
+            sendOSC('/event/cellCreated', index, x, y);
+        });
+        
+        window.voronoi.onCellDestroyed((index, x, y) => {
+            sendOSC('/event/cellDestroyed', index, x, y);
+        });
+
+        // Max jweb integration
+        if (typeof window.max !== 'undefined') {
+            // Bind inlets for control
+            window.max.bindInlet('setCellCount', (n) => window.voronoi.setCellCount(n));
+            window.max.bindInlet('setSpeed', (v) => window.voronoi.setSpeed(v));
+            window.max.bindInlet('setTurbulence', (v) => window.voronoi.setTurbulence(v));
+            window.max.bindInlet('setAttraction', (v) => window.voronoi.setAttraction(v));
+            window.max.bindInlet('setBorderWidth', (v) => window.voronoi.setBorderWidth(v));
+            window.max.bindInlet('setCollisionThreshold', (v) => window.voronoi.setCollisionThreshold(v));
+            window.max.bindInlet('reset', () => window.voronoi.reset());
+            window.max.bindInlet('pause', () => window.voronoi.pause());
+            window.max.bindInlet('resume', () => window.voronoi.resume());
+            window.max.bindInlet('toggle', () => window.voronoi.toggle());
+            
+            // Request data on demand
+            window.max.bindInlet('getCellData', () => {
+                window.max.outlet('cellData', JSON.stringify(window.voronoi.getCellData()));
+            });
+            window.max.bindInlet('getAnalysis', () => {
+                window.max.outlet('analysis', JSON.stringify(window.voronoi.getAnalysis()));
+            });
+            
+            // Enable/disable continuous output
+            let maxOutputEnabled = false;
+            let maxOutputInterval = null;
+            
+            window.max.bindInlet('enableOutput', (enable, intervalMs) => {
+                maxOutputEnabled = !!enable;
+                if (maxOutputInterval) {
+                    clearInterval(maxOutputInterval);
+                    maxOutputInterval = null;
+                }
+                if (maxOutputEnabled) {
+                    const ms = intervalMs || 50; // Default 50ms = 20fps
+                    maxOutputInterval = setInterval(() => {
+                        if (!maxOutputEnabled) return;
+                        
+                        const analysis = analyzeCells();
+                        const areas = estimateCellAreas(200);
+                        
+                        // Output aggregate data as list
+                        let avgX = 0, avgY = 0, totalVel = 0;
+                        for (let i = 0; i < cells.length; i++) {
+                            avgX += cells[i].x;
+                            avgY += cells[i].y;
+                            totalVel += analysis.speed[i];
+                        }
+                        avgX /= cells.length;
+                        avgY /= cells.length;
+                        totalVel /= cells.length;
+                        
+                        let spreadX = 0, spreadY = 0;
+                        for (const cell of cells) {
+                            spreadX += (cell.x - avgX) * (cell.x - avgX);
+                            spreadY += (cell.y - avgY) * (cell.y - avgY);
+                        }
+                        const spread = Math.sqrt((spreadX + spreadY) / cells.length);
+                        
+                        // Output aggregate: count avgX avgY avgVel spread minDist maxDist
+                        window.max.outlet('aggregate', 
+                            cells.length, 
+                            avgX, avgY, 
+                            totalVel, 
+                            spread,
+                            Math.min(...analysis.nearestDist),
+                            Math.max(...analysis.nearestDist)
+                        );
+                        
+                        // Output per-cell data as separate messages
+                        for (let i = 0; i < cells.length; i++) {
+                            // cell index x y vx vy speed nearestDist density area
+                            window.max.outlet('cell', 
+                                i,
+                                cells[i].x, cells[i].y,
+                                cells[i].vx, cells[i].vy,
+                                analysis.speed[i],
+                                analysis.nearestDist[i],
+                                analysis.localDensity[i],
+                                areas[i] || 0
+                            );
+                        }
+                    }, ms);
+                }
+            });
+            
+            // Collision events
+            const origDetectCollisions = detectCollisions;
+            window.detectCollisionsWithMax = function(analysis) {
+                const collisions = origDetectCollisions ? origDetectCollisions(analysis) : detectCollisions(analysis);
+                for (const c of collisions) {
+                    window.max.outlet('collision', c.a, c.b, c.dist);
+                }
+                return collisions;
+            };
+            
+            // Cell lifecycle events - register callbacks to output to Max
+            window.voronoi.onCellCreated((index, x, y) => {
+                window.max.outlet('cellCreated', index, x, y);
+            });
+            
+            window.voronoi.onCellDestroyed((index, x, y) => {
+                window.max.outlet('cellDestroyed', index, x, y);
+            });
+            
+            window.max.outlet('ready', 1);
+            console.log('Max jweb bindings initialized');
+        }
+        
+        // Add toggle methods to API
+        window.voronoi.toggleSidebar = function(show) {
+            if (show !== undefined) sidebarVisible = show;
+            else sidebarVisible = !sidebarVisible;
+            sidebar.classList.toggle('hidden', !sidebarVisible);
+            container.classList.toggle('fullscreen', !sidebarVisible);
+            resize();
+            return sidebarVisible;
+        };
+        
+        window.voronoi.toggleInfo = function(show) {
+            if (show !== undefined) infoVisible = show;
+            else infoVisible = !infoVisible;
+            overlayInfo.classList.toggle('visible', infoVisible);
+            return infoVisible;
+        };
+
+        console.log('Voronoi Simulator initialized. Access API via window.voronoi');
+        console.log('Keyboard: [H] toggle sidebar, [I] toggle info, [Space] pause, [R] reset');
+    </script>
+</body>
+</html>
